@@ -127,17 +127,17 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Con
                      VersionID -> ["?versionId=", VersionID]
                  end,
     RequestHeaders =
-        [{"x-amz-copy-source", [SrcBucketName, $/, SrcKeyName, SrcVersion]},
-         {"x-amz-metadata-directive", proplists:get_value(metadata_directive, Options)},
-         {"x-amz-copy-source-if-match", proplists:get_value(if_match, Options)},
-         {"x-amz-copy-source-if-none-match", proplists:get_value(if_none_match, Options)},
-         {"x-amz-copy-source-if-unmodified-since", proplists:get_value(if_unmodified_since, Options)},
-         {"x-amz-copy-source-if-modified-since", proplists:get_value(if_modified_since, Options)},
-         {"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}],
+        [{"x-oss-copy-source", [SrcBucketName, $/, SrcKeyName, SrcVersion]},
+         {"x-oss-metadata-directive", proplists:get_value(metadata_directive, Options)},
+         {"x-oss-copy-source-if-match", proplists:get_value(if_match, Options)},
+         {"x-oss-copy-source-if-none-match", proplists:get_value(if_none_match, Options)},
+         {"x-oss-copy-source-if-unmodified-since", proplists:get_value(if_unmodified_since, Options)},
+         {"x-oss-copy-source-if-modified-since", proplists:get_value(if_modified_since, Options)},
+         {"x-oss-acl", encode_acl(proplists:get_value(acl, Options))}],
     {Headers, _Body} = s3_request(Config, put, DestBucketName, [$/|DestKeyName],
                                   "", [], <<>>, RequestHeaders),
-    [{copy_source_version_id, proplists:get_value("x-amz-copy-source-version-id", Headers, "false")},
-     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
+    [{copy_source_version_id, proplists:get_value("x-oss-copy-source-version-id", Headers, "false")},
+     {version_id, proplists:get_value("x-oss-version-id", Headers, "null")}].
 
 -spec create_bucket(string()) -> ok.
 
@@ -168,7 +168,7 @@ create_bucket(BucketName, ACL, LocationConstraint, Config)
   when is_list(BucketName), is_atom(ACL), is_atom(LocationConstraint) ->
     Headers = case ACL of
                   private -> [];  %% private is the default
-                  _       -> [{"x-amz-acl", encode_acl(ACL)}]
+                  _       -> [{"x-oss-acl", encode_acl(ACL)}]
               end,
     POSTData = case LocationConstraint of
                    none -> <<>>;
@@ -266,8 +266,8 @@ delete_object(BucketName, Key) ->
 delete_object(BucketName, Key, Config)
   when is_list(BucketName), is_list(Key) ->
     {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key], "", [], <<>>, []),
-    Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
-    Id = proplists:get_value("x-amz-version-id", Headers, "null"),
+    Marker = proplists:get_value("x-oss-delete-marker", Headers, "false"),
+    Id = proplists:get_value("x-oss-version-id", Headers, "null"),
     [{delete_marker, list_to_existing_atom(Marker)},
      {version_id, Id}].
 
@@ -284,8 +284,8 @@ delete_object_version(BucketName, Key, Version, Config)
        is_list(Version)->
     {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key],
                                   ["versionId=", Version], [], <<>>, []),
-    Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
-    Id = proplists:get_value("x-amz-version-id", Headers, "null"),
+    Marker = proplists:get_value("x-oss-delete-marker", Headers, "false"),
+    Id = proplists:get_value("x-oss-version-id", Headers, "null"),
     [{delete_marker, list_to_existing_atom(Marker)},
      {version_id, Id}].
 
@@ -501,8 +501,8 @@ get_object(BucketName, Key, Options, Config) ->
      {content_length, proplists:get_value("content-length", Headers)},
      {content_type, proplists:get_value("content-type", Headers)},
      {content_encoding, proplists:get_value("content-encoding", Headers)},
-     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")},
+     {delete_marker, list_to_existing_atom(proplists:get_value("x-oss-delete-marker", Headers, "false"))},
+     {version_id, proplists:get_value("x-oss-version-id", Headers, "null")},
      {content, Body}|
      extract_metadata(Headers)].
 
@@ -565,11 +565,11 @@ get_object_metadata(BucketName, Key, Options, Config) ->
      {content_length, proplists:get_value("content-length", Headers)},
      {content_type, proplists:get_value("content-type", Headers)},
      {content_encoding, proplists:get_value("content-encoding", Headers)},
-     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
+     {delete_marker, list_to_existing_atom(proplists:get_value("x-oss-delete-marker", Headers, "false"))},
+     {version_id, proplists:get_value("x-oss-version-id", Headers, "false")}|extract_metadata(Headers)].
 
 extract_metadata(Headers) ->
-    [{Key, Value} || {Key = "x-amz-meta-" ++ _, Value} <- Headers].
+    [{Key, Value} || {Key = "x-oss-meta-" ++ _, Value} <- Headers].
 
 -spec get_object_torrent(string(), string()) -> proplist().
 
@@ -580,8 +580,8 @@ get_object_torrent(BucketName, Key) ->
 
 get_object_torrent(BucketName, Key, Config) ->
     {Headers, Body} = s3_request(Config, get, BucketName, [$/|Key], "torrent", [], <<>>, []),
-    [{delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")},
+    [{delete_marker, list_to_existing_atom(proplists:get_value("x-oss-delete-marker", Headers, "false"))},
+     {version_id, proplists:get_value("x-oss-version-id", Headers, "null")},
      {torrent, Body}].
 
 -spec list_object_versions(string()) -> proplist().
@@ -677,13 +677,13 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
   when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
        is_list(Options) ->
-    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
-        ++ [{"x-amz-meta-" ++ string:to_lower(MKey), MValue} ||
+    RequestHeaders = [{"x-oss-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
+        ++ [{"x-oss-meta-" ++ string:to_lower(MKey), MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
     POSTData = iolist_to_binary(Value),
     {Headers, _Body} = s3_request(Config, put, BucketName, [$/|Key], "", [],
                                   POSTData, RequestHeaders),
-    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
+    [{version_id, proplists:get_value("x-oss-version-id", Headers, "null")}].
 
 -spec set_object_acl(string(), string(), proplist()) -> ok.
 
@@ -711,7 +711,7 @@ sign_get(Expire_time, BucketName, Key, Config)
     Expires = integer_to_list(Expire_time + Datetime),
     SecurityTokenToSign = case Config#aws_config.security_token of
         undefined -> "";
-        SecurityToken -> "x-amz-security-token:" ++ SecurityToken ++ "\n"
+        SecurityToken -> "x-oss-security-token:" ++ SecurityToken ++ "\n"
     end,
     To_sign = lists:flatten(["GET\n\n\n", Expires, "\n", SecurityTokenToSign, "/", BucketName, "/", Key]),
     Sig = base64:encode(erlcloud_util:sha_mac(Config#aws_config.secret_access_key, To_sign)),
@@ -730,9 +730,9 @@ make_link(Expire_time, BucketName, Key, Config) ->
     Host = lists:flatten([Config#aws_config.s3_scheme, BucketName, ".", Config#aws_config.s3_host, port_spec(Config)]),
     SecurityTokenQS = case Config#aws_config.security_token of
         undefined -> "";
-        SecurityToken -> "&x-amz-security-token=" ++ erlcloud_http:url_encode(SecurityToken)
+        SecurityToken -> "&x-oss-security-token=" ++ erlcloud_http:url_encode(SecurityToken)
     end,
-    URI = lists:flatten(["/", EncodedKey, "?AWSAccessKeyId=", erlcloud_http:url_encode(Config#aws_config.access_key_id), "&Signature=", erlcloud_http:url_encode(Sig), "&Expires=", Expires, SecurityTokenQS]),
+    URI = lists:flatten(["/", EncodedKey, "?OSSAccessKeyId=", erlcloud_http:url_encode(Config#aws_config.access_key_id), "&Signature=", erlcloud_http:url_encode(Sig), "&Expires=", Expires, SecurityTokenQS]),
     {list_to_integer(Expires),
      binary_to_list(erlang:iolist_to_binary(Host)),
      binary_to_list(erlang:iolist_to_binary(URI))}.
@@ -761,10 +761,10 @@ make_get_url(Expire_time, BucketName, Key, Config) ->
     {Sig, Expires} = sign_get(Expire_time, BucketName, erlcloud_http:url_encode_loose(Key), Config),
     SecurityTokenQS = case Config#aws_config.security_token of
         undefined -> "";
-        SecurityToken -> "&x-amz-security-token=" ++ erlcloud_http:url_encode(SecurityToken)
+        SecurityToken -> "&x-oss-security-token=" ++ erlcloud_http:url_encode(SecurityToken)
     end,
     lists:flatten([get_object_url(BucketName, Key, Config),
-     "?AWSAccessKeyId=", erlcloud_http:url_encode(Config#aws_config.access_key_id),
+     "?OSSAccessKeyId=", erlcloud_http:url_encode(Config#aws_config.access_key_id),
      "&Signature=", erlcloud_http:url_encode(Sig),
      "&Expires=", Expires,
      SecurityTokenQS]).
@@ -778,8 +778,8 @@ start_multipart(BucketName, Key)
 start_multipart(BucketName, Key, Options, HTTPHeaders, Config)
   when is_list(BucketName), is_list(Key), is_list(Options), is_list(HTTPHeaders), is_record(Config, aws_config) ->
 
-    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
-        ++ [{"x-amz-meta-" ++ string:to_lower(MKey), MValue} ||
+    RequestHeaders = [{"x-oss-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
+        ++ [{"x-oss-meta-" ++ string:to_lower(MKey), MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
     POSTData = <<>>,
     case s3_xml_request2(Config, post, BucketName, [$/|Key], "uploads", [],
@@ -1072,10 +1072,10 @@ s3_request2_no_update(Config, Method, Host, Path, Subresource, Params, Body, Hea
                  end,
     Headers = case Config#aws_config.security_token of
                   undefined -> Headers0;
-                  Token when is_list(Token) -> [{"x-amz-security-token", Token} | Headers0]
+                  Token when is_list(Token) -> [{"x-oss-security-token", Token} | Headers0]
               end,
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    AmzHeaders = [Header || {"x-amz-" ++ _, _} = Header <- FHeaders],
+    AmzHeaders = [Header || {"x-oss-" ++ _, _} = Header <- FHeaders],
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = erlcloud_http:url_encode_loose(Path),
     Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
@@ -1157,7 +1157,7 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                     end
                    ],
     Signature = base64:encode(erlcloud_util:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
-    ["AWS ", Config#aws_config.access_key_id, $:, Signature].
+    ["OSS ", Config#aws_config.access_key_id, $:, Signature].
 
 default_config() -> erlcloud_aws:default_config().
 
